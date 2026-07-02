@@ -8,6 +8,7 @@ mod client;
 mod command;
 mod connection;
 mod error;
+mod escaping;
 mod protocol;
 mod response;
 
@@ -15,7 +16,10 @@ pub use channel::{parse_channel_list, Channel, ChannelFlags};
 pub use client::QueryClient;
 pub use command::Command;
 pub use error::{QueryError, ServerError};
-pub use protocol::{escape, unescape, Event};
+pub use escaping::{
+    escape, is_special_character, unescape, EscapeError, ESCAPE_CHARACTER,
+};
+pub use protocol::Event;
 pub use response::Response;
 
 const COMMAND_BUFFER: usize = 64;

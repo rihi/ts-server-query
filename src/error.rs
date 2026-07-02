@@ -3,6 +3,8 @@ use std::io;
 
 use thiserror::Error;
 
+use crate::escaping::EscapeError;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ServerError {
     pub id: u32,
@@ -23,6 +25,9 @@ pub enum QueryError {
 
     #[error("protocol error: {0}")]
     Protocol(String),
+
+    #[error("escaping error: {0}")]
+    Escape(#[from] EscapeError),
 
     #[error("server error {}: {}", .0.id, .0.message)]
     Server(ServerError),
