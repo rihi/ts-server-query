@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
 use std::io;
+
+use thiserror::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ServerError {
@@ -10,40 +10,20 @@ pub struct ServerError {
     pub fields: HashMap<String, String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum QueryError {
+    #[error("query connection is closed")]
     Closed,
+
+    #[error("invalid ServerQuery command")]
     InvalidCommand,
-    Io(io::Error),
+
+    #[error("I/O error: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("protocol error: {0}")]
     Protocol(String),
+
+    #[error("server error {}: {}", .0.id, .0.message)]
     Server(ServerError),
-}
-
-impl fmt::Display for QueryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            QueryError::Closed => f.write_str("query connection is closed"),
-            QueryError::InvalidCommand => f.write_str("invalid ServerQuery command"),
-            QueryError::Io(error) => write!(f, "I/O error: {error}"),
-            QueryError::Protocol(message) => write!(f, "protocol error: {message}"),
-            QueryError::Server(error) => {
-                write!(f, "server error {}: {}", error.id, error.message)
-            }
-        }
-    }
-}
-
-impl Error for QueryError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            QueryError::Io(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
-impl From<io::Error> for QueryError {
-    fn from(error: io::Error) -> Self {
-        QueryError::Io(error)
-    }
 }
