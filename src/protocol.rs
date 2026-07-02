@@ -1,33 +1,12 @@
 use std::collections::HashMap;
 
-use crate::error::{QueryError, ServerError};
+use crate::error::QueryError;
 use crate::escaping::unescape;
-use crate::response::Response;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
     pub name: String,
     pub fields: HashMap<String, String>,
-}
-
-pub(crate) fn finish_response(
-    current_response: &mut Vec<String>,
-    error_line: &str,
-) -> Result<Response, QueryError> {
-    let fields = parse_fields(error_line.strip_prefix("error ").unwrap_or(error_line))?;
-    let id = required_u32(&fields, "id")?;
-    let message = fields.get("msg").cloned().unwrap_or_default();
-
-    if id == 0 {
-        Ok(Response::new(std::mem::take(current_response), fields))
-    } else {
-        current_response.clear();
-        Err(QueryError::Server(ServerError {
-            id,
-            message,
-            fields,
-        }))
-    }
 }
 
 pub(crate) fn parse_event(line: &str) -> Result<Event, QueryError> {
@@ -78,12 +57,6 @@ pub(crate) fn required_u64(
         .map_err(|_| QueryError::Protocol(format!("invalid integer field `{key}`")))
 }
 
-fn required_u32(fields: &HashMap<String, String>, key: &str) -> Result<u32, QueryError> {
-    required_string(fields, key)?
-        .parse()
-        .map_err(|_| QueryError::Protocol(format!("invalid integer field `{key}`")))
-}
-
 pub(crate) fn bool_field(fields: &HashMap<String, String>, key: &str) -> bool {
     fields.get(key).is_some_and(|value| value == "1")
 }
@@ -91,32 +64,6 @@ pub(crate) fn bool_field(fields: &HashMap<String, String>, key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parses_successful_response() {
-        let mut lines = vec!["clid=1 client_nickname=serveradmin".to_owned()];
-        let response = finish_response(&mut lines, "error id=0 msg=ok").unwrap();
-
-        assert_eq!(response.lines(), ["clid=1 client_nickname=serveradmin"]);
-        assert_eq!(response.metadata().get("msg").unwrap(), "ok");
-    }
-
-    #[test]
-    fn parses_server_error() {
-        let mut lines = Vec::new();
-        let error =
-            finish_response(&mut lines, r"error id=2568 msg=insufficient\sclient\spermissions")
-                .unwrap_err();
-
-        assert!(matches!(
-            error,
-            QueryError::Server(ServerError {
-                id: 2568,
-                message,
-                ..
-            }) if message == "insufficient client permissions"
-        ));
-    }
 
     #[test]
     fn parses_notification_event() {

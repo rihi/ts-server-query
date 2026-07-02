@@ -8,7 +8,8 @@ use tokio::time::timeout;
 
 use crate::client::Request;
 use crate::error::QueryError;
-use crate::protocol::{finish_response, parse_event, Event};
+use crate::protocol::{parse_event, parse_fields, Event};
+use crate::Response;
 
 const STARTUP_LINE_COUNT: usize = 2;
 const STARTUP_LINE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -63,11 +64,14 @@ pub(crate) async fn run_query_connection(
                 }
 
                 if line.starts_with("error ") {
-                    let response = finish_response(&mut current_response, line);
-                    let reply = pending.pop_front().ok_or_else(|| {
-                        QueryError::Protocol("received response without a pending request".to_owned())
+                    let status_params = line.strip_prefix("error ").ok_or_else(|| {
+                        QueryError::Protocol("response terminator is missing error prefix".to_owned())
                     })?;
-                    let _ = reply.send(response);
+                    let params = parse_fields(status_params)?;
+                    let reply = pending.pop_front().ok_or_else(|| { 
+                        QueryError::Protocol("received response without a pending request".to_owned()) 
+                    })?;
+                    let _ = reply.send(Response::new(std::mem::take(&mut current_response), params));
                     continue;
                 }
 

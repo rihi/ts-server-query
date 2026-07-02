@@ -15,7 +15,7 @@ mod response;
 pub use channel::{parse_channel_list, Channel, ChannelFlags};
 pub use client::QueryClient;
 pub use command::{Command, CommandError};
-pub use error::{QueryError, ServerError};
+pub use error::QueryError;
 pub use escaping::{
     escape, is_special_character, unescape, EscapeError, ESCAPE_CHARACTER,
 };
