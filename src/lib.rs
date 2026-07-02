@@ -13,7 +13,7 @@ mod response;
 
 pub use client::QueryClient;
 pub use command::{Command, CommandError};
-pub use error::{ConnectionError, SendError};
+pub use error::{ConnectionClosed, ConnectionError};
 pub use escaping::{
     escape, is_special_character, unescape, EscapeError, ESCAPE_CHARACTER,
 };

@@ -19,8 +19,6 @@ pub enum ConnectionError {
     Escape(#[from] EscapeError),
 }
 
-#[derive(Clone, Debug, Eq, Error, PartialEq)]
-pub enum SendError {
-    #[error("query connection is closed")]
-    Closed,
-}
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+#[error("query connection is closed")]
+pub struct ConnectionClosed;
