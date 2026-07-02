@@ -1,4 +1,3 @@
-use crate::channel::{parse_channel_list, Channel};
 use crate::command::Command;
 use crate::error::QueryError;
 use crate::protocol::Event;
@@ -32,15 +31,6 @@ impl QueryClient {
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<Event> {
         self.events.subscribe()
-    }
-
-    pub async fn channel_list(&self) -> Result<Vec<Channel>, QueryError> {
-        let response = self
-            .send(Command::new("channellist").unwrap()
-                .option("topic").unwrap()
-                .option("flags").unwrap())
-            .await?;
-        parse_channel_list(&response)
     }
 }
 

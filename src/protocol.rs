@@ -38,29 +38,6 @@ pub(crate) fn parse_fields(input: &str) -> Result<HashMap<String, String>, Query
     Ok(fields)
 }
 
-pub(crate) fn required_string(
-    fields: &HashMap<String, String>,
-    key: &str,
-) -> Result<String, QueryError> {
-    fields
-        .get(key)
-        .cloned()
-        .ok_or_else(|| QueryError::Protocol(format!("missing required field `{key}`")))
-}
-
-pub(crate) fn required_u64(
-    fields: &HashMap<String, String>,
-    key: &str,
-) -> Result<u64, QueryError> {
-    required_string(fields, key)?
-        .parse()
-        .map_err(|_| QueryError::Protocol(format!("invalid integer field `{key}`")))
-}
-
-pub(crate) fn bool_field(fields: &HashMap<String, String>, key: &str) -> bool {
-    fields.get(key).is_some_and(|value| value == "1")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
