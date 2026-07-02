@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::future::Future;
 use std::time::Duration;
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -6,13 +7,30 @@ use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::timeout;
 
-use crate::client::Request;
+use crate::client::{QueryClient, Request};
 use crate::error::ConnectionError;
 use crate::protocol::{parse_event, parse_fields, Event};
 use crate::Response;
 
+const COMMAND_BUFFER: usize = 64;
+const EVENT_BUFFER: usize = 256;
 const STARTUP_LINE_COUNT: usize = 2;
 const STARTUP_LINE_TIMEOUT: Duration = Duration::from_secs(5);
+
+pub fn query_connection(
+    stream: TcpStream,
+) -> (
+    QueryClient,
+    impl Future<Output = Result<(), ConnectionError>> + Send + 'static,
+) {
+    let (commands_tx, commands_rx) = mpsc::channel(COMMAND_BUFFER);
+    let (events_tx, _) = broadcast::channel(EVENT_BUFFER);
+
+    let client = QueryClient::new(commands_tx, events_tx.clone());
+    let connection = run_query_connection(stream, commands_rx, events_tx);
+
+    (client, connection)
+}
 
 pub(crate) async fn run_query_connection(
     mut stream: TcpStream,
