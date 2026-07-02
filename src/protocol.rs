@@ -26,13 +26,21 @@ pub(crate) fn parse_event(line: &str) -> Result<Event, ConnectionError> {
 pub(crate) fn parse_fields(input: &str) -> Result<HashMap<String, String>, ConnectionError> {
     let mut fields = HashMap::new();
 
-    for field in input.split(' ') {
+    for field in input.split_whitespace() {
         let Some((key, value)) = field.split_once('=') else {
-            fields.insert(unescape(field)?, String::new());
-            continue;
+            return Err(ConnectionError::Protocol(format!(
+                "field is missing `=`: `{field}`"
+            )));
         };
 
-        fields.insert(unescape(key)?, unescape(value)?);
+        let key = unescape(key)?;
+        if key.is_empty() {
+            return Err(ConnectionError::Protocol(
+                "field key must not be empty".to_owned(),
+            ));
+        }
+
+        fields.insert(key, unescape(value)?);
     }
 
     Ok(fields)
@@ -57,6 +65,22 @@ mod tests {
         assert!(matches!(
             parse_event(r"notifycliententerview client_nickname=Alice\xSmith"),
             Err(ConnectionError::Escape(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_field_without_key_value_separator() {
+        assert!(matches!(
+            parse_fields("clid=7 malformed"),
+            Err(ConnectionError::Protocol(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_field_with_empty_key() {
+        assert!(matches!(
+            parse_fields("=value"),
+            Err(ConnectionError::Protocol(_))
         ));
     }
 }
