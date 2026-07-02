@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::error::QueryError;
+use crate::error::ConnectionError;
 use crate::escaping::unescape;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -9,11 +9,11 @@ pub struct Event {
     pub fields: HashMap<String, String>,
 }
 
-pub(crate) fn parse_event(line: &str) -> Result<Event, QueryError> {
+pub(crate) fn parse_event(line: &str) -> Result<Event, ConnectionError> {
     let mut parts = line.splitn(2, ' ');
     let name = parts.next().unwrap_or_default().to_owned();
     if name == "notify" || !name.starts_with("notify") {
-        return Err(QueryError::Protocol(format!(
+        return Err(ConnectionError::Protocol(format!(
             "invalid notification line: `{line}`"
         )));
     }
@@ -23,7 +23,7 @@ pub(crate) fn parse_event(line: &str) -> Result<Event, QueryError> {
     Ok(Event { name, fields })
 }
 
-pub(crate) fn parse_fields(input: &str) -> Result<HashMap<String, String>, QueryError> {
+pub(crate) fn parse_fields(input: &str) -> Result<HashMap<String, String>, ConnectionError> {
     let mut fields = HashMap::new();
 
     for field in input.split_whitespace() {
@@ -56,7 +56,7 @@ mod tests {
     fn rejects_malformed_notification_event() {
         assert!(matches!(
             parse_event(r"notifycliententerview client_nickname=Alice\xSmith"),
-            Err(QueryError::Escape(_))
+            Err(ConnectionError::Escape(_))
         ));
     }
 }

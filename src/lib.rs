@@ -3,7 +3,6 @@ use std::future::Future;
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
 
-mod channel;
 mod client;
 mod command;
 mod connection;
@@ -12,10 +11,9 @@ mod escaping;
 mod protocol;
 mod response;
 
-pub use channel::{parse_channel_list, Channel, ChannelFlags};
 pub use client::QueryClient;
 pub use command::{Command, CommandError};
-pub use error::QueryError;
+pub use error::{ConnectionError, SendError};
 pub use escaping::{
     escape, is_special_character, unescape, EscapeError, ESCAPE_CHARACTER,
 };
@@ -29,7 +27,7 @@ pub fn query_connection(
     stream: TcpStream,
 ) -> (
     QueryClient,
-    impl Future<Output = Result<(), QueryError>> + Send + 'static,
+    impl Future<Output = Result<(), ConnectionError>> + Send + 'static,
 ) {
     let (commands_tx, commands_rx) = mpsc::channel(COMMAND_BUFFER);
     let (events_tx, _) = broadcast::channel(EVENT_BUFFER);

@@ -7,7 +7,7 @@ use tokio::sync::{broadcast, mpsc};
 use tokio::time::timeout;
 
 use crate::client::Request;
-use crate::error::QueryError;
+use crate::error::ConnectionError;
 use crate::protocol::{parse_event, parse_fields, Event};
 use crate::Response;
 
@@ -18,7 +18,7 @@ pub(crate) async fn run_query_connection(
     mut stream: TcpStream,
     mut commands: mpsc::Receiver<Request>,
     events: broadcast::Sender<Event>,
-) -> Result<(), QueryError> {
+) -> Result<(), ConnectionError> {
     let (reader, mut writer) = stream.split();
     let mut reader = BufReader::new(reader);
     let mut line = Vec::new();
@@ -52,7 +52,7 @@ pub(crate) async fn run_query_connection(
                 }
 
                 let line_text = std::str::from_utf8(&line)
-                    .map_err(|_| QueryError::Protocol("received non-UTF-8 line".to_owned()))?;
+                    .map_err(|_| ConnectionError::Protocol("received non-UTF-8 line".to_owned()))?;
                 let line_text = trim_line_end(line_text).to_owned();
                 line.clear();
                 let line = line_text.as_str();
@@ -65,18 +65,18 @@ pub(crate) async fn run_query_connection(
 
                 if line.starts_with("error ") {
                     let status_params = line.strip_prefix("error ").ok_or_else(|| {
-                        QueryError::Protocol("response terminator is missing error prefix".to_owned())
+                        ConnectionError::Protocol("response terminator is missing error prefix".to_owned())
                     })?;
                     let params = parse_fields(status_params)?;
-                    let reply = pending.pop_front().ok_or_else(|| { 
-                        QueryError::Protocol("received response without a pending request".to_owned()) 
+                    let reply = pending.pop_front().ok_or_else(|| {
+                        ConnectionError::Protocol("received response without a pending request".to_owned())
                     })?;
                     let _ = reply.send(Response::new(std::mem::take(&mut current_response), params));
                     continue;
                 }
 
                 if pending.is_empty() {
-                    return Err(QueryError::Protocol(format!(
+                    return Err(ConnectionError::Protocol(format!(
                         "received response line without a pending request: `{line}`"
                     )));
                 }
@@ -90,7 +90,7 @@ pub(crate) async fn run_query_connection(
     }
 }
 
-async fn skip_startup_lines<R>(reader: &mut BufReader<R>) -> Result<(), QueryError>
+async fn skip_startup_lines<R>(reader: &mut BufReader<R>) -> Result<(), ConnectionError>
 where
     R: tokio::io::AsyncRead + Unpin,
 {
@@ -99,14 +99,14 @@ where
         let bytes_read = timeout(STARTUP_LINE_TIMEOUT, reader.read_line(&mut line))
             .await
             .map_err(|_| {
-                QueryError::Protocol(format!(
+                ConnectionError::Protocol(format!(
                     "timed out waiting for startup line {}",
                     index + 1
                 ))
             })??;
 
         if bytes_read == 0 {
-            return Err(QueryError::Closed);
+            return Err(ConnectionError::Closed);
         }
     }
 

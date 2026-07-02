@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::escaping::EscapeError;
 
 #[derive(Debug, Error)]
-pub enum QueryError {
+pub enum ConnectionError {
     #[error("query connection is closed")]
     Closed,
 
@@ -17,4 +17,10 @@ pub enum QueryError {
 
     #[error("escaping error: {0}")]
     Escape(#[from] EscapeError),
+}
+
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum SendError {
+    #[error("query connection is closed")]
+    Closed,
 }

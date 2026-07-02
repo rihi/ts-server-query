@@ -1,5 +1,5 @@
 use crate::command::Command;
-use crate::error::QueryError;
+use crate::error::SendError;
 use crate::protocol::Event;
 use crate::response::Response;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -18,15 +18,15 @@ impl QueryClient {
         Self { commands, events }
     }
 
-    pub async fn send(&self, command: Command) -> Result<Response, QueryError> {
+    pub async fn send(&self, command: Command) -> Result<Response, SendError> {
         let (tx, rx) = oneshot::channel();
 
         self.commands
             .send(Request { command, reply: tx })
             .await
-            .map_err(|_| QueryError::Closed)?;
+            .map_err(|_| SendError::Closed)?;
 
-        rx.await.map_err(|_| QueryError::Closed)
+        rx.await.map_err(|_| SendError::Closed)
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<Event> {
