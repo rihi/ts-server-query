@@ -26,7 +26,7 @@ pub(crate) fn parse_event(line: &str) -> Result<Event, ConnectionError> {
 pub(crate) fn parse_fields(input: &str) -> Result<HashMap<String, String>, ConnectionError> {
     let mut fields = HashMap::new();
 
-    for field in input.split_whitespace() {
+    for field in input.split(' ') {
         let Some((key, value)) = field.split_once('=') else {
             fields.insert(unescape(field)?, String::new());
             continue;

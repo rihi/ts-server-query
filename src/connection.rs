@@ -9,7 +9,7 @@ use tokio::time::timeout;
 
 use crate::client::{QueryClient, Request};
 use crate::error::ConnectionError;
-use crate::protocol::{parse_event, parse_fields, Event};
+use crate::protocol::{parse_fields, Event};
 use crate::Response;
 
 const COMMAND_BUFFER: usize = 64;
@@ -39,14 +39,14 @@ pub(crate) async fn run_query_connection(
 ) -> Result<(), ConnectionError> {
     let (reader, mut writer) = stream.split();
     let mut reader = BufReader::new(reader);
-    let mut line = Vec::new();
     let mut pending = VecDeque::new();
-    let mut current_response = Vec::new();
     let mut encountered_cmd_eof = false;
     let mut encountered_reader_eof = false;
 
     skip_startup_lines(&mut reader).await?;
 
+    let mut current_response = Vec::new();
+    let mut current_line = Vec::new();
     loop {
         tokio::select! {
             command = commands.recv(), if !encountered_cmd_eof => {
@@ -61,7 +61,7 @@ pub(crate) async fn run_query_connection(
                 writer.flush().await?;
                 pending.push_back(request.reply);
             }
-            read = reader.read_until(b'\n', &mut line), if !encountered_reader_eof => {
+            read = reader.read_until(b'\n', &mut current_line), if !encountered_reader_eof => {
                 let bytes_read = read?;
                 if bytes_read == 0 {
                     commands.close();
@@ -69,27 +69,36 @@ pub(crate) async fn run_query_connection(
                     continue;
                 }
 
-                let line_text = std::str::from_utf8(&line)
+                let line = std::str::from_utf8(&current_line)
                     .map_err(|_| ConnectionError::Protocol("received non-UTF-8 line".to_owned()))?;
-                let line_text = trim_line_end(line_text).to_owned();
-                line.clear();
-                let line = line_text.as_str();
+                let line = line.trim_end_matches(['\r', '\n']).to_owned();
+                current_line.clear();
 
                 if line.starts_with("notify") {
-                    let event = parse_event(line)?;
+                    let (name, rest) = line.split_once(' ').ok_or_else(|| {
+                        ConnectionError::Protocol("received event without fields".to_owned())
+                    })?;
+                    let fields = parse_fields(rest)?;
+                
+                    let event = Event { 
+                        name: name.to_owned(),
+                        fields,
+                    };
                     let _ = events.send(event);
                     continue;
                 }
 
-                if line.starts_with("error ") {
-                    let status_params = line.strip_prefix("error ").ok_or_else(|| {
-                        ConnectionError::Protocol("response terminator is missing error prefix".to_owned())
-                    })?;
-                    let params = parse_fields(status_params)?;
+                if let Some(status_params) = line.strip_prefix("error ") {
+                    let fields = parse_fields(status_params)?;
                     let reply = pending.pop_front().ok_or_else(|| {
                         ConnectionError::Protocol("received response without a pending request".to_owned())
                     })?;
-                    let _ = reply.send(Response::new(std::mem::take(&mut current_response), params));
+                    
+                    let response = Response { 
+                        lines: std::mem::take(&mut current_response),
+                        fields,
+                    };
+                    let _ = reply.send(response);
                     continue;
                 }
 
@@ -129,8 +138,4 @@ where
     }
 
     Ok(())
-}
-
-fn trim_line_end(line: &str) -> &str {
-    line.trim_end_matches(['\r', '\n'])
 }
