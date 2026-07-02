@@ -37,7 +37,9 @@ impl QueryClient {
 
     pub async fn channel_list(&self) -> Result<Vec<Channel>, QueryError> {
         let response = self
-            .send(Command::raw("channellist -topic -flags")?)
+            .send(Command::new("channellist").unwrap()
+                .option("topic").unwrap()
+                .option("flags").unwrap())
             .await?;
         parse_channel_list(&response)
     }

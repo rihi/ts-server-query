@@ -17,9 +17,6 @@ pub enum QueryError {
     #[error("query connection is closed")]
     Closed,
 
-    #[error("invalid ServerQuery command")]
-    InvalidCommand,
-
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),
 
