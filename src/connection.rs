@@ -61,7 +61,7 @@ pub(crate) async fn run_query_connection(
                 writer.flush().await?;
                 pending.push_back(request.reply);
             }
-            read = reader.read_until(b'\n', &mut current_line), if !encountered_reader_eof => {
+            read = reader.read_until(b'\r', &mut current_line), if !encountered_reader_eof => {
                 let bytes_read = read?;
                 if bytes_read == 0 {
                     commands.close();
@@ -71,7 +71,7 @@ pub(crate) async fn run_query_connection(
 
                 let line = std::str::from_utf8(&current_line)
                     .map_err(|_| ConnectionError::Protocol("received non-UTF-8 line".to_owned()))?;
-                let line = line.trim_end_matches(['\r', '\n']).to_owned();
+                let line = line.trim_end_matches("\n\r").to_owned();
                 current_line.clear();
 
                 if line.starts_with("notify") {
@@ -122,8 +122,8 @@ where
     R: tokio::io::AsyncRead + Unpin,
 {
     for index in 0..STARTUP_LINE_COUNT {
-        let mut line = String::new();
-        let bytes_read = timeout(STARTUP_LINE_TIMEOUT, reader.read_line(&mut line))
+        let mut line = Vec::new();
+        let bytes_read = timeout(STARTUP_LINE_TIMEOUT, reader.read_until(b'\r', &mut line))
             .await
             .map_err(|_| {
                 ConnectionError::Protocol(format!(
