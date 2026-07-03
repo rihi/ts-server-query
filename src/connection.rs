@@ -24,13 +24,12 @@ const STARTUP_LINE_TIMEOUT: Duration = Duration::from_secs(5);
 ///
 /// Use [`query_connection_parts`] if the reader and writer have already been
 /// split.
-pub fn query_connection<S>(
-    stream: S,
+pub fn query_connection<'a>(
+    stream: impl AsyncRead + AsyncWrite + Unpin + Send + 'a,
 ) -> (
     QueryClient,
-    impl Future<Output = Result<(), ConnectionError>> + Send + 'static,
-) where
-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    impl Future<Output = Result<(), ConnectionError>> + Send + 'a,
+)
 {
     let (reader, writer) = split(stream);
     query_connection_parts(reader, writer)
