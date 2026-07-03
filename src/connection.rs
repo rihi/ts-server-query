@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 use std::future::Future;
 use std::time::Duration;
 
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
+use tokio::io::{split, AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::timeout;
 
@@ -17,27 +16,42 @@ const EVENT_BUFFER: usize = 256;
 const STARTUP_LINE_COUNT: usize = 2;
 const STARTUP_LINE_TIMEOUT: Duration = Duration::from_secs(5);
 
-pub fn query_connection(
-    stream: TcpStream,
+pub fn query_connection<S>(
+    stream: S,
 ) -> (
     QueryClient,
     impl Future<Output = Result<(), ConnectionError>> + Send + 'static,
-) {
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    let (reader, writer) = split(stream);
+    query_connection_parts(reader, writer)
+}
+
+pub fn query_connection_parts<'a>(
+    reader: impl AsyncRead + Unpin + Send + 'a,
+    writer: impl AsyncWrite + Unpin + Send + 'a,
+) -> (
+    QueryClient,
+    impl Future<Output = Result<(), ConnectionError>> + Send + 'a,
+)
+{
     let (commands_tx, commands_rx) = mpsc::channel(COMMAND_BUFFER);
     let (events_tx, _) = broadcast::channel(EVENT_BUFFER);
 
     let client = QueryClient::new(commands_tx, events_tx.clone());
-    let connection = run_query_connection(stream, commands_rx, events_tx);
+    let connection = run_query_connection(reader, writer, commands_rx, events_tx);
 
     (client, connection)
 }
 
 pub(crate) async fn run_query_connection(
-    mut stream: TcpStream,
+    reader: impl AsyncRead + Unpin,
+    mut writer: impl AsyncWrite + Unpin,
     mut commands: mpsc::Receiver<Request>,
     events: broadcast::Sender<Event>,
-) -> Result<(), ConnectionError> {
-    let (reader, mut writer) = stream.split();
+) -> Result<(), ConnectionError>
+{
     let mut reader = BufReader::new(reader);
     let mut pending = VecDeque::new();
     let mut encountered_cmd_eof = false;
@@ -117,9 +131,9 @@ pub(crate) async fn run_query_connection(
     }
 }
 
-async fn skip_startup_lines<R>(reader: &mut BufReader<R>) -> Result<(), ConnectionError>
-where
-    R: tokio::io::AsyncRead + Unpin,
+async fn skip_startup_lines(
+    reader: &mut BufReader<impl AsyncRead + Unpin>
+) -> Result<(), ConnectionError>
 {
     for index in 0..STARTUP_LINE_COUNT {
         let mut line = Vec::new();
