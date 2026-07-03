@@ -3,18 +3,28 @@ use thiserror::Error;
 use crate::escaping::{escape, is_special_character};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// ServerQuery command text.
+///
+/// Use [`Command::new`] for structured commands with escaped argument values,
+/// or [`Command::raw`] when you already have a complete single-line command.
 pub struct Command {
     raw: String,
 }
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
+/// Error returned when command construction would produce invalid ServerQuery
+/// command text.
 pub enum CommandError {
+    /// Raw command text contains `\r` or `\n`.
     #[error("raw ServerQuery command must not contain line breaks")]
     ContainsLineBreak,
 
+    /// A command, argument, or option name is empty.
     #[error("{kind} must not be empty")]
     EmptyName { kind: &'static str },
 
+    /// A command, argument, or option name contains a character that must be
+    /// escaped in ServerQuery values.
     #[error("{kind} `{name}` contains a special character")]
     SpecialCharacter {
         kind: &'static str,
@@ -23,6 +33,11 @@ pub enum CommandError {
 }
 
 impl Command {
+    /// Creates a command from complete raw ServerQuery text.
+    ///
+    /// This does not escape or validate command syntax beyond rejecting line
+    /// breaks. Prefer [`Command::new`] unless callers provide the entire command
+    /// text themselves.
     pub fn raw(
         command: impl Into<String>
     ) -> Result<Self, CommandError> {
@@ -31,6 +46,10 @@ impl Command {
         Ok(Self { raw })
     }
     
+    /// Starts a structured command with the given command name.
+    ///
+    /// The name must not be empty and must not contain ServerQuery special
+    /// characters such as spaces or `|`.
     pub fn new(
         name: impl Into<String>
     ) -> Result<Self, CommandError> {
@@ -40,6 +59,10 @@ impl Command {
         Ok(Self { raw: name })
     }
 
+    /// Adds an escaped `name=value` argument.
+    ///
+    /// The argument name is validated as plain ServerQuery identifier text. The
+    /// value is escaped with [`crate::escape`].
     pub fn arg(
         mut self,
         name: impl AsRef<str>,
@@ -56,6 +79,9 @@ impl Command {
         Ok(self)
     }
 
+    /// Adds an option in `-name` form.
+    ///
+    /// The option name must not include the leading `-`.
     pub fn option(
         mut self,
         name: impl AsRef<str>
@@ -70,6 +96,7 @@ impl Command {
         Ok(self)
     }
 
+    /// Returns the encoded command line without a trailing newline.
     pub fn as_str(&self) -> &str {
         &self.raw
     }

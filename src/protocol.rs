@@ -4,8 +4,15 @@ use crate::error::ConnectionError;
 use crate::escaping::unescape;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// ServerQuery notification event.
+///
+/// Events are emitted for protocol lines whose command name starts with
+/// `notify`.
 pub struct Event {
+    /// Event command name, such as `notifycliententerview`.
     pub name: String,
+
+    /// Parsed key-value fields attached to the event.
     pub fields: HashMap<String, String>,
 }
 

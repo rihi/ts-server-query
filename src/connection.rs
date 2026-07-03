@@ -16,6 +16,14 @@ const EVENT_BUFFER: usize = 256;
 const STARTUP_LINE_COUNT: usize = 2;
 const STARTUP_LINE_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Creates a client and connection future from a bidirectional Tokio IO stream.
+///
+/// The returned [`QueryClient`] is used to send commands. The returned future
+/// owns the stream and must be awaited or spawned; it drives startup handling,
+/// command writes, response reads, and event broadcasts.
+///
+/// Use [`query_connection_parts`] if the reader and writer have already been
+/// split.
 pub fn query_connection<S>(
     stream: S,
 ) -> (
@@ -28,6 +36,12 @@ pub fn query_connection<S>(
     query_connection_parts(reader, writer)
 }
 
+/// Creates a client and connection future from separate reader and writer
+/// halves.
+///
+/// This is the lower-level constructor used by [`query_connection`]. It is
+/// useful for already-split streams, test IO, or wrapper types that expose
+/// separate read and write handles.
 pub fn query_connection_parts<'a>(
     reader: impl AsyncRead + Unpin + Send + 'a,
     writer: impl AsyncWrite + Unpin + Send + 'a,

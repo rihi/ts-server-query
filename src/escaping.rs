@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+/// Escape marker used by the ServerQuery protocol.
 pub const ESCAPE_CHARACTER: char = '\\';
 
 const ESCAPES: &[EscapeSequence] = &[
@@ -22,18 +23,24 @@ struct EscapeSequence {
 }
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
+/// Error returned when decoding escaped ServerQuery text fails.
 pub enum EscapeError {
+    /// The input ended directly after an escape marker.
     #[error("unterminated escape sequence")]
     UnterminatedSequence,
 
+    /// The input contained an unknown escape code.
     #[error("unknown escape sequence `\\{0}`")]
     UnknownSequence(char),
 }
 
+/// Returns whether a character has a special escaped representation in
+/// ServerQuery values.
 pub fn is_special_character(ch: char) -> bool {
     ESCAPES.iter().any(|sequence| sequence.plain == ch)
 }
 
+/// Escapes text for use as a ServerQuery value.
 pub fn escape(input: &str) -> String {
     let mut escaped = String::with_capacity(input.len());
 
@@ -49,6 +56,7 @@ pub fn escape(input: &str) -> String {
     escaped
 }
 
+/// Decodes escaped ServerQuery text.
 pub fn unescape(input: &str) -> Result<String, EscapeError> {
     let mut unescaped = String::with_capacity(input.len());
     let mut chars = input.chars();
