@@ -3,6 +3,13 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Response returned for a ServerQuery command.
 pub struct Response {
+    /// Monotonic identifier assigned when the response status line is received.
+    ///
+    /// Compare this with [`crate::Event::sequence`] to determine relative
+    /// ordering between command responses and notification events on the same
+    /// connection.
+    pub sequence: u64,
+
     /// Non-status response lines received before the final `error` status line.
     pub lines: Vec<String>,
 

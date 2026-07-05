@@ -9,6 +9,13 @@ use crate::escaping::unescape;
 /// Events are emitted for protocol lines whose command name starts with
 /// `notify`.
 pub struct Event {
+    /// Monotonic identifier assigned when the event is received.
+    ///
+    /// Compare this with [`crate::Response::sequence`] to determine relative
+    /// ordering between notification events and command responses on the same
+    /// connection.
+    pub sequence: u64,
+
     /// Event command name, such as `notifycliententerview`.
     pub name: String,
 

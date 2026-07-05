@@ -72,6 +72,7 @@ pub(crate) async fn run_query_connection(
 
     skip_startup_lines(&mut reader).await?;
 
+    let mut next_sequence = 0;
     let mut current_response = Vec::new();
     let mut current_line = Vec::new();
     loop {
@@ -106,8 +107,11 @@ pub(crate) async fn run_query_connection(
                         ConnectionError::Protocol("received event without fields".to_owned())
                     })?;
                     let fields = parse_fields(rest)?;
-                
-                    let event = Event { 
+                    let sequence = next_sequence;
+                    next_sequence += 1;
+
+                    let event = Event {
+                        sequence,
                         name: name.to_owned(),
                         fields,
                     };
@@ -120,8 +124,11 @@ pub(crate) async fn run_query_connection(
                     let reply = pending.pop_front().ok_or_else(|| {
                         ConnectionError::Protocol("received response without a pending request".to_owned())
                     })?;
-                    
-                    let response = Response { 
+                    let sequence = next_sequence;
+                    next_sequence += 1;
+
+                    let response = Response {
+                        sequence,
                         lines: std::mem::take(&mut current_response),
                         fields,
                     };
